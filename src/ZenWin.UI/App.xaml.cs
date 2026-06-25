@@ -8,7 +8,7 @@ using Forms = System.Windows.Forms;
 
 namespace ZenWin.UI;
 
-public partial class App : Application
+public partial class App : System.Windows.Application
 {
     private ServiceProvider? _services;
     private Forms.NotifyIcon? _trayIcon;
@@ -67,7 +67,7 @@ public partial class App : Application
         };
         _trayIcon.ContextMenuStrip.Items.Add("Toggle Zen", null, (_, _) => viewModel.ToggleZenCommand.Execute(null));
         _trayIcon.ContextMenuStrip.Items.Add("Settings", null, (_, _) => ShowSettings());
-        _trayIcon.ContextMenuStrip.Items.Add("About", null, (_, _) => MessageBox.Show("ZenWin 0.1.0\nUniversal Zen Mode for Windows", "About ZenWin"));
+        _trayIcon.ContextMenuStrip.Items.Add("About", null, (_, _) => System.Windows.MessageBox.Show("ZenWin 0.1.0\nUniversal Zen Mode for Windows", "About ZenWin"));
         _trayIcon.ContextMenuStrip.Items.Add("Exit", null, (_, _) => ExitApp());
         _trayIcon.DoubleClick += (_, _) => ShowSettings();
     }

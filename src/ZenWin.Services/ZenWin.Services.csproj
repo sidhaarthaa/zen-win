@@ -3,5 +3,7 @@
     <ProjectReference Include="..\ZenWin.Interop\ZenWin.Interop.csproj" />
     <ProjectReference Include="..\ZenWin.Models\ZenWin.Models.csproj" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
+    <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
+    <PackageReference Include="System.Windows.Extensions" Version="9.0.0" />
   </ItemGroup>
 </Project>
