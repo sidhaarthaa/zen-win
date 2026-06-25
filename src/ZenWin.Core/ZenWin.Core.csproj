@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\ZenWin.Models\ZenWin.Models.csproj" />
+    <ProjectReference Include="..\ZenWin.Services\ZenWin.Services.csproj" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
+  </ItemGroup>
+</Project>

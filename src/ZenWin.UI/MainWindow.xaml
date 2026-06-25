@@ -1,0 +1,67 @@
+<Window x:Class="ZenWin.UI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ZenWin Settings" Width="880" Height="560" MinWidth="760" MinHeight="480"
+        Background="{StaticResource SurfaceBrush}">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="210" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Border Background="#FFFFFFFF" BorderBrush="#E1E4EA" BorderThickness="0,0,1,0">
+            <StackPanel Margin="18">
+                <TextBlock Text="ZenWin" FontSize="28" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}" />
+                <TextBlock Text="Universal Zen Mode" Margin="0,2,0,22" Foreground="#68707D" />
+                <ListBox SelectedIndex="0" BorderThickness="0" Background="Transparent">
+                    <ListBoxItem Content="General" Padding="10" />
+                    <ListBoxItem Content="Appearance" Padding="10" />
+                    <ListBoxItem Content="Animations" Padding="10" />
+                    <ListBoxItem Content="Profiles" Padding="10" />
+                    <ListBoxItem Content="Hotkeys" Padding="10" />
+                    <ListBoxItem Content="Audio" Padding="10" />
+                    <ListBoxItem Content="Wallpaper" Padding="10" />
+                    <ListBoxItem Content="About" Padding="10" />
+                </ListBox>
+            </StackPanel>
+        </Border>
+        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="28" MaxWidth="620">
+                <TextBlock Text="General" FontSize="24" FontWeight="SemiBold" />
+                <TextBlock Text="ZenWin runs from the tray. Use F10 to toggle the active app into a distraction-free workspace." Foreground="#68707D" Margin="0,4,0,20" TextWrapping="Wrap" />
+                <Button Content="Toggle Zen Mode" Command="{Binding ToggleZenCommand}" Width="160" HorizontalAlignment="Left" />
+                <CheckBox Content="Start with Windows" IsChecked="{Binding Settings.StartWithWindows}" Margin="0,22,0,8" />
+                <CheckBox Content="Global mode affects every monitor" IsChecked="{Binding Settings.GlobalMode}" Margin="0,0,0,18" />
+                <Separator />
+                <TextBlock Text="Profiles" FontSize="20" FontWeight="SemiBold" Margin="0,20,0,8" />
+                <ItemsControl ItemsSource="{Binding Settings.Profiles}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="White" BorderBrush="#E1E4EA" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,10">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding ProcessName, TargetNullValue='All applications'}" Foreground="#68707D" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Text="{Binding BackgroundOpacity, StringFormat=Opacity {0:P0}}" VerticalAlignment="Center" Foreground="#68707D" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <Separator Margin="0,10" />
+                <TextBlock Text="Hotkeys" FontSize="20" FontWeight="SemiBold" Margin="0,14,0,8" />
+                <UniformGrid Columns="2">
+                    <TextBlock Text="Toggle Zen" Margin="0,6" />
+                    <TextBlock Text="{Binding Settings.ToggleZenHotkey}" Margin="0,6" />
+                    <TextBlock Text="Toggle Toolbar" Margin="0,6" />
+                    <TextBlock Text="{Binding Settings.ToggleToolbarHotkey}" Margin="0,6" />
+                </UniformGrid>
+                <Button Content="Save Settings" Command="{Binding SaveCommand}" Width="130" HorizontalAlignment="Left" Margin="0,24,0,0" />
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Window>
