@@ -37,7 +37,6 @@ public partial class App : System.Windows.Application
 
     private void ConfigureTray()
     {
-        var viewModel = _services!.GetRequiredService<MainViewModel>();
         _trayIcon = new Forms.NotifyIcon
         {
             Icon = System.Drawing.SystemIcons.Application,
@@ -45,7 +44,6 @@ public partial class App : System.Windows.Application
             Visible = true,
             ContextMenuStrip = new Forms.ContextMenuStrip()
         };
-        _trayIcon.ContextMenuStrip.Items.Add("Toggle Frameless", null, (_, _) => viewModel.ToggleZenCommand.Execute(null));
         _trayIcon.ContextMenuStrip.Items.Add("Settings", null, (_, _) => ShowSettings());
         _trayIcon.ContextMenuStrip.Items.Add("About", null, (_, _) => System.Windows.MessageBox.Show("ZenWin\nFrameless windows for Windows", "About ZenWin"));
         _trayIcon.ContextMenuStrip.Items.Add("Exit", null, (_, _) => ExitApp());
@@ -61,7 +59,14 @@ public partial class App : System.Windows.Application
         {
             if (id == 1) viewModel.ToggleZenCommand.Execute(null);
         };
-        _hotkeyWindow.RegisterDefaults();
+        try
+        {
+            _hotkeyWindow.RegisterDefaults();
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(ex.Message, "ZenWin hotkey unavailable");
+        }
     }
 
     private void ShowSettings()

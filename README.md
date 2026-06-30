@@ -17,6 +17,42 @@ For a conventional Win32 desktop window, ZenWin:
 ZenWin does not change wallpaper, audio, notifications, desktop icons, cursor behavior,
 or add an overlay or toolbar.
 
+## How to use ZenWin
+
+1. Start ZenWin. It remains available in the Windows notification area.
+2. Focus the desktop application you want to change.
+3. Press `F10`. ZenWin removes the standard frame and expands the window to its monitor.
+4. Press `F10` again to restore the original frame, menu, size, position, and show state.
+5. To close ZenWin, right-click its notification-area icon and select **Exit**. ZenWin
+   restores the active target before exiting.
+
+### Hotkeys
+
+| Hotkey | Action |
+| --- | --- |
+| `F10` | Toggle frameless mode for the focused application; press again to restore it |
+
+`F10` is system-wide while ZenWin is running. If another application has already
+registered `F10`, ZenWin displays an error at startup. Close or reconfigure the
+conflicting application, then restart ZenWin.
+
+Only one target window is managed at a time. Restore the current target before focusing
+another application and enabling frameless mode.
+
+### Troubleshooting
+
+- **Nothing happens:** confirm ZenWin is running in the notification area and that the
+  target application, not ZenWin, is focused when you press `F10`.
+- **Access denied or the frame remains:** if the target runs as administrator, ZenWin
+  must run at the same elevation level.
+- **The title bar remains but the window fills the monitor:** the application is likely
+  drawing that title bar inside its client area. See the limitations below.
+- **How do I close a frameless app?** press `F10` to restore its caption buttons, or use
+  the application's own shortcut such as `Alt+F4`.
+- **ZenWin or the target closes unexpectedly:** starting ZenWin again does not have the
+  original in-memory snapshot. Windows normally recreates standard styles when the
+  target restarts; otherwise close and reopen the target application.
+
 ## Install
 
 Download the native installer for your architecture from

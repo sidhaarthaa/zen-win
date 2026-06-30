@@ -17,14 +17,12 @@
         </StackPanel>
 
         <StackPanel Grid.Row="1" VerticalAlignment="Center">
+            <TextBlock Text="F10" FontSize="34" FontWeight="SemiBold"
+                       HorizontalAlignment="Center" Margin="0,0,0,8" />
             <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap"
                        FontSize="15" Foreground="{StaticResource TextBrush}"
                        HorizontalAlignment="Center" TextAlignment="Center"
-                       MaxWidth="420" Margin="0,0,0,18" />
-            <Button Content="{Binding ToggleButtonText}"
-                    Command="{Binding ToggleZenCommand}"
-                    MinWidth="210" Height="42"
-                    HorizontalAlignment="Center" />
+                       MaxWidth="420" />
         </StackPanel>
     </Grid>
 </Window>

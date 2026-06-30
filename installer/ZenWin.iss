@@ -17,7 +17,7 @@
 [Setup]
 AppId={{E56C3498-EF78-43EF-AFF8-C232BFD49AA8}
 AppName=ZenWin
-AppVersion=0.2.0
+AppVersion=0.2.1
 AppPublisher=ZenWin
 AppPublisherURL=https://github.com/sidhaarthaa/zen-win
 AppSupportURL=https://github.com/sidhaarthaa/zen-win/issues

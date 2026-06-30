@@ -7,6 +7,6 @@
     <Platforms>AnyCPU;x64;ARM64</Platforms>
     <Company>ZenWin</Company>
     <Product>ZenWin</Product>
-    <Version>0.2.0</Version>
+    <Version>0.2.1</Version>
   </PropertyGroup>
 </Project>

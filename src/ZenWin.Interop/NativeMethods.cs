@@ -76,7 +76,7 @@ public static partial class NativeMethods
     [DllImport("user32.dll")] public static extern bool GetMonitorInfo(nint hMonitor, ref MONITORINFO lpmi);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern nint FindWindow(string? lpClassName, string? lpWindowName);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern nint FindWindowEx(nint hwndParent, nint hwndChildAfter, string? lpszClass, string? lpszWindow);
-    [DllImport("user32.dll")] public static extern bool RegisterHotKey(nint hWnd, int id, int fsModifiers, int vk);
+    [DllImport("user32.dll", SetLastError = true)] public static extern bool RegisterHotKey(nint hWnd, int id, int fsModifiers, int vk);
     [DllImport("user32.dll")] public static extern bool UnregisterHotKey(nint hWnd, int id);
     [DllImport("user32.dll")] public static extern int ShowCursor(bool bShow);
     [DllImport("user32.dll")] public static extern bool GetLastInputInfo(ref LASTINPUTINFO plii);

@@ -16,19 +16,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
         {
             _controller.Toggle();
             OnPropertyChanged(nameof(IsZenActive));
-            OnPropertyChanged(nameof(ToggleButtonText));
             OnPropertyChanged(nameof(StatusMessage));
         });
         _controller.ActiveChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(IsZenActive));
-            OnPropertyChanged(nameof(ToggleButtonText));
             OnPropertyChanged(nameof(StatusMessage));
         };
     }
 
     public bool IsZenActive => _controller.IsActive;
-    public string ToggleButtonText => IsZenActive ? "Restore Window Frame" : "Make Active Window Frameless";
     public string StatusMessage => _controller.StatusMessage;
     public ICommand ToggleZenCommand { get; }
     public event PropertyChangedEventHandler? PropertyChanged;

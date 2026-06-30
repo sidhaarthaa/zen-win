@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Windows.Interop;
 using System.Windows.Input;
 using ZenWin.Interop;
@@ -18,7 +20,10 @@ public sealed class HotkeyWindow : IDisposable
 
     public void RegisterDefaults()
     {
-        NativeMethods.RegisterHotKey(_source.Handle, 1, 0, KeyInterop.VirtualKeyFromKey(Key.F10));
+        if (!NativeMethods.RegisterHotKey(_source.Handle, 1, 0, KeyInterop.VirtualKeyFromKey(Key.F10)))
+            throw new Win32Exception(
+                Marshal.GetLastPInvokeError(),
+                "F10 is already registered by another application. Close that application and restart ZenWin.");
     }
 
     private nint WndProc(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled)
