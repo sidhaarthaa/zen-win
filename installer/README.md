@@ -30,5 +30,5 @@ git push origin v0.1.0
 ```
 
 The `build` workflow creates ZIP files and SHA-256 checksums on the corresponding
-GitHub Release. A Winget or Chocolatey package should reference those immutable
-release assets once the package identifiers have been reserved.
+GitHub Release. It also creates native x64 and ARM64 Inno Setup executables with
+silent install and uninstall support for package managers.

@@ -36,6 +36,9 @@ To install manually, download the ZIP for your architecture from
 [GitHub Releases](https://github.com/sidhaarthaa/zen-win/releases/latest), extract it,
 and run `ZenWin.UI.exe`.
 
+The release also provides native `ZenWin-x64-setup.exe` and
+`ZenWin-arm64-setup.exe` installers with silent install and uninstall support.
+
 To uninstall, use **Settings > Apps > Installed apps > ZenWin**, or run:
 
 ```powershell
