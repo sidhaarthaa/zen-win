@@ -19,7 +19,6 @@ public sealed class HotkeyWindow : IDisposable
     public void RegisterDefaults()
     {
         NativeMethods.RegisterHotKey(_source.Handle, 1, 0, KeyInterop.VirtualKeyFromKey(Key.F10));
-        NativeMethods.RegisterHotKey(_source.Handle, 2, NativeMethods.MOD_CONTROL | NativeMethods.MOD_SHIFT, KeyInterop.VirtualKeyFromKey(Key.Z));
     }
 
     private nint WndProc(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled)
@@ -35,7 +34,6 @@ public sealed class HotkeyWindow : IDisposable
     public void Dispose()
     {
         NativeMethods.UnregisterHotKey(_source.Handle, 1);
-        NativeMethods.UnregisterHotKey(_source.Handle, 2);
         _source.Dispose();
     }
 }

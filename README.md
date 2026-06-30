@@ -1,8 +1,53 @@
 # ZenWin
 
-ZenWin is a native Windows utility that applies a universal Zen Mode to the currently focused desktop application.
+ZenWin is a Windows utility that removes the standard non-client frame from the
+currently focused desktop application. Press `F10` to toggle frameless mode.
 
-The first production slice is implemented as a .NET 9 WPF solution with a clean service split for Win32 interop, settings, profiles, tray integration, toolbar, hotkeys, cursor idle hiding, taskbar and desktop icon visibility, wallpaper restore, generated ambient audio, and exact window style/bounds restore.
+## Frameless behavior
+
+For a conventional Win32 desktop window, ZenWin:
+
+- removes the title bar, caption buttons, resize border, dialog frame, and DWM edge styles;
+- detaches a native Win32 menu bar;
+- resizes the content window to the full bounds of its current monitor;
+- checks that Windows accepted the style change instead of reporting false success;
+- reapplies the frameless styles if the application recreates its standard frame; and
+- restores the original styles, native menu, show state, and normal window placement.
+
+ZenWin does not change wallpaper, audio, notifications, desktop icons, cursor behavior,
+or add an overlay or toolbar.
+
+## Install
+
+Download the native installer for your architecture from
+[GitHub Releases](https://github.com/sidhaarthaa/zen-win/releases/latest).
+
+The PowerShell installer is also available:
+
+```powershell
+irm https://raw.githubusercontent.com/sidhaarthaa/zen-win/master/installer/install.ps1 | iex
+```
+
+## Windows limitations
+
+Windows exposes standard non-client chrome through window styles, which ZenWin can
+remove reliably from ordinary Win32, WPF, and Windows Forms top-level windows.
+
+Some visible UI is not non-client chrome:
+
+- Chromium, Electron, WinUI, games, and other applications may draw their own title
+  bar and buttons inside the client area. Removing that UI requires application-specific
+  support and cannot be done safely through universal Win32 window styles.
+- Browser tabs, address bars, menus implemented as controls, ribbons, and toolbars are
+  application content. ZenWin does not hide or crop them.
+- Elevated applications reject changes from a non-elevated ZenWin process because of
+  Windows integrity-level isolation. Run ZenWin at the same elevation level when needed.
+- Protected, anti-cheat, sandboxed, exclusive-fullscreen, or frequently recreated
+  windows may reject or overwrite external style changes.
+
+For these cases ZenWin removes every standard frame component Windows allows, reports
+failure when the frame remains, and leaves client-drawn content intact rather than using
+unsafe process injection or brittle application-specific hacks.
 
 ## Build
 
@@ -13,56 +58,3 @@ dotnet restore .\ZenWin.sln
 dotnet build .\ZenWin.sln -c Release
 dotnet test .\ZenWin.sln -c Release
 ```
-
-Run the app locally:
-
-```powershell
-dotnet run --project .\src\ZenWin.UI\ZenWin.UI.csproj
-```
-
-## Install
-
-Install the latest release directly from GitHub (no administrator access or .NET SDK required):
-
-```powershell
-irm https://raw.githubusercontent.com/sidhaarthaa/zen-win/master/installer/install.ps1 | iex
-```
-
-The installer detects x64 or ARM64 Windows, installs under the current user's local
-app data, creates Start Menu and desktop shortcuts, and registers ZenWin in Windows'
-Installed Apps list.
-
-To install manually, download the ZIP for your architecture from
-[GitHub Releases](https://github.com/sidhaarthaa/zen-win/releases/latest), extract it,
-and run `ZenWin.UI.exe`.
-
-The release also provides native `ZenWin-x64-setup.exe` and
-`ZenWin-arm64-setup.exe` installers with silent install and uninstall support.
-
-To uninstall, use **Settings > Apps > Installed apps > ZenWin**, or run:
-
-```powershell
-& "$env:LOCALAPPDATA\Programs\ZenWin\install.ps1" -Uninstall
-```
-
-## Development Builds
-
-Open the repository's **Actions** tab, select the latest `build` workflow run, and
-download the artifact for your architecture. Tagged builds such as `v0.1.0` are
-published automatically to GitHub Releases.
-
-## Hotkeys
-
-- `F10`: Toggle Zen Mode
-- `Ctrl+Shift+Z`: Toggle toolbar
-
-## OS constraints
-
-Windows does not expose a supported public desktop API for toggling Focus Assist / Do Not Disturb for arbitrary unpackaged desktop applications. ZenWin logs this and leaves the user's notification setting unchanged.
-
-Some elevated, protected, exclusive fullscreen, or custom-rendered windows reject style changes. ZenWin detects failed operations and exits cleanly rather than crashing.
-
-## Packaging
-
-The repository publishes self-contained x64 and ARM64 ZIPs to GitHub Releases.
-Winget and Chocolatey manifests can be added after the first stable release URL exists.

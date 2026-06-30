@@ -10,7 +10,6 @@
     <ProjectReference Include="..\ZenWin.Core\ZenWin.Core.csproj" />
     <ProjectReference Include="..\ZenWin.Services\ZenWin.Services.csproj" />
     <ProjectReference Include="..\ZenWin.Models\ZenWin.Models.csproj" />
-    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.0" />

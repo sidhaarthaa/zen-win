@@ -1,5 +1,7 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using ZenWin.Interop;
@@ -16,88 +18,200 @@ public sealed class WindowManager(ILogger<WindowManager> logger)
         if (hwnd == nint.Zero || !NativeMethods.IsWindow(hwnd))
             throw new InvalidOperationException("No valid foreground window is available.");
 
-        NativeMethods.GetWindowRect(hwnd, out var rect);
+        if (!NativeMethods.GetWindowRect(hwnd, out var rect))
+            throw LastWin32Exception("Unable to read the target window bounds.");
+
         NativeMethods.GetWindowThreadProcessId(hwnd, out var pid);
-        var title = GetTitle(hwnd);
-        var processName = Process.GetProcessById((int)pid).ProcessName;
+        var style = ReadWindowLong(hwnd, NativeMethods.GWL_STYLE);
+        if ((style & NativeMethods.WS_CHILD) != 0)
+            throw new InvalidOperationException("The selected handle is a child control, not a top-level application window.");
+
+        var placement = new WINDOWPLACEMENT { Length = Marshal.SizeOf<WINDOWPLACEMENT>() };
+        if (!NativeMethods.GetWindowPlacement(hwnd, ref placement))
+            throw LastWin32Exception("Unable to read the target window placement.");
+
+        string processName;
+        try
+        {
+            processName = Process.GetProcessById((int)pid).ProcessName;
+        }
+        catch
+        {
+            processName = $"pid-{pid}";
+        }
 
         return new WindowSnapshot
         {
             Handle = hwnd,
-            Style = NativeMethods.GetWindowLongPtr(hwnd, NativeMethods.GWL_STYLE).ToInt32(),
-            ExtendedStyle = NativeMethods.GetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE).ToInt32(),
-            Bounds = Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom),
+            ProcessId = pid,
+            Style = style,
+            ExtendedStyle = ReadWindowLong(hwnd, NativeMethods.GWL_EXSTYLE),
+            Bounds = ToRectangle(rect),
+            Placement = new WindowPlacementSnapshot
+            {
+                Flags = placement.Flags,
+                ShowCommand = placement.ShowCmd,
+                MinPosition = new Point(placement.MinPosition.X, placement.MinPosition.Y),
+                MaxPosition = new Point(placement.MaxPosition.X, placement.MaxPosition.Y),
+                NormalBounds = ToRectangle(placement.NormalPosition)
+            },
+            Menu = NativeMethods.GetMenu(hwnd),
             WasMaximized = NativeMethods.IsZoomed(hwnd),
             WasMinimized = NativeMethods.IsIconic(hwnd),
-            InsertAfter = NativeMethods.HWND_TOP,
             ProcessName = processName,
-            Title = title
+            Title = GetTitle(hwnd)
         };
     }
 
-    public bool TryEnterZen(WindowSnapshot snapshot, ZenModeProfile profile)
+    public FramelessResult TryEnterFrameless(WindowSnapshot snapshot)
+    {
+        if (!NativeMethods.IsWindow(snapshot.Handle))
+            return FramelessResult.Failure("The target window no longer exists.");
+
+        var result = ApplyFrameless(snapshot);
+        if (result.Succeeded)
+        {
+            var hadStandardChrome = WindowStyleTransformer.HasStandardFrame(
+                snapshot.Style,
+                snapshot.ExtendedStyle) || snapshot.Menu != nint.Zero;
+            return hadStandardChrome
+                ? FramelessResult.Success(
+                    "The standard Windows frame was removed. Client-drawn controls remain application content.")
+                : FramelessResult.Success(
+                    "No standard Windows frame was detected. Any visible title bar or controls are drawn inside the application and cannot be removed universally.");
+        }
+
+        logger.LogWarning("Frameless mode failed for {Process}: {Reason}", snapshot.ProcessName, result.Message);
+        Restore(snapshot);
+        return result;
+    }
+
+    public FramelessResult EnsureFrameless(WindowSnapshot snapshot)
+    {
+        if (!NativeMethods.IsWindow(snapshot.Handle))
+            return FramelessResult.Failure("The target window was closed.");
+
+        try
+        {
+            var currentStyle = ReadWindowLong(snapshot.Handle, NativeMethods.GWL_STYLE);
+            var currentExtendedStyle = ReadWindowLong(snapshot.Handle, NativeMethods.GWL_EXSTYLE);
+            var hasMenu = NativeMethods.GetMenu(snapshot.Handle) != nint.Zero;
+            if (!WindowStyleTransformer.HasStandardFrame(currentStyle, currentExtendedStyle) && !hasMenu)
+                return FramelessResult.Success();
+        }
+        catch (Exception ex)
+        {
+            return FramelessResult.Failure(ex.Message);
+        }
+
+        return ApplyFrameless(snapshot);
+    }
+
+    private FramelessResult ApplyFrameless(WindowSnapshot snapshot)
+    {
+        try
+        {
+            var style = WindowStyleTransformer.RemoveStandardFrame(
+                ReadWindowLong(snapshot.Handle, NativeMethods.GWL_STYLE));
+            var extendedStyle = WindowStyleTransformer.RemoveExtendedFrame(
+                ReadWindowLong(snapshot.Handle, NativeMethods.GWL_EXSTYLE));
+
+            SetWindowLongChecked(snapshot.Handle, NativeMethods.GWL_STYLE, style);
+            SetWindowLongChecked(snapshot.Handle, NativeMethods.GWL_EXSTYLE, extendedStyle);
+
+            if (NativeMethods.GetMenu(snapshot.Handle) != nint.Zero)
+            {
+                if (!NativeMethods.SetMenu(snapshot.Handle, nint.Zero))
+                    throw LastWin32Exception("Windows rejected removal of the native menu.");
+                NativeMethods.DrawMenuBar(snapshot.Handle);
+            }
+
+            var bounds = MonitorInfo.FromWindow(snapshot.Handle).Bounds;
+            if (!NativeMethods.SetWindowPos(
+                    snapshot.Handle,
+                    NativeMethods.HWND_TOP,
+                    bounds.Left,
+                    bounds.Top,
+                    bounds.Width,
+                    bounds.Height,
+                    NativeMethods.SWP_FRAMECHANGED | NativeMethods.SWP_SHOWWINDOW))
+                throw LastWin32Exception("Windows rejected the frameless bounds update.");
+
+            var appliedStyle = ReadWindowLong(snapshot.Handle, NativeMethods.GWL_STYLE);
+            var appliedExtendedStyle = ReadWindowLong(snapshot.Handle, NativeMethods.GWL_EXSTYLE);
+            if (WindowStyleTransformer.HasStandardFrame(appliedStyle, appliedExtendedStyle))
+                return FramelessResult.Failure(
+                    "The application restored its standard frame immediately. ZenWin will not report a partial change as success.");
+
+            if (NativeMethods.GetMenu(snapshot.Handle) != nint.Zero)
+                return FramelessResult.Failure("The application restored its native menu immediately.");
+
+            NativeMethods.SetForegroundWindow(snapshot.Handle);
+            return FramelessResult.Success();
+        }
+        catch (Exception ex)
+        {
+            return FramelessResult.Failure(ex.Message);
+        }
+    }
+
+    public bool Restore(WindowSnapshot snapshot)
     {
         if (!NativeMethods.IsWindow(snapshot.Handle))
             return false;
 
         try
         {
-            var style = snapshot.Style;
-            var exStyle = snapshot.ExtendedStyle;
+            SetWindowLongChecked(snapshot.Handle, NativeMethods.GWL_STYLE, snapshot.Style);
+            SetWindowLongChecked(snapshot.Handle, NativeMethods.GWL_EXSTYLE, snapshot.ExtendedStyle);
 
-            if (profile.RemoveTitleBar)
-                style &= ~(NativeMethods.WS_CAPTION | NativeMethods.WS_SYSMENU | NativeMethods.WS_MINIMIZEBOX | NativeMethods.WS_MAXIMIZEBOX);
-            if (profile.RemoveBorder)
+            if (NativeMethods.GetMenu(snapshot.Handle) != snapshot.Menu)
             {
-                style &= ~(NativeMethods.WS_THICKFRAME | NativeMethods.WS_BORDER | NativeMethods.WS_DLGFRAME);
-                exStyle &= ~(NativeMethods.WS_EX_DLGMODALFRAME | NativeMethods.WS_EX_CLIENTEDGE | NativeMethods.WS_EX_STATICEDGE);
+                if (!NativeMethods.SetMenu(snapshot.Handle, snapshot.Menu))
+                    throw LastWin32Exception("Unable to restore the native menu.");
+                NativeMethods.DrawMenuBar(snapshot.Handle);
             }
 
-            NativeMethods.SetWindowLongPtr(snapshot.Handle, NativeMethods.GWL_STYLE, style);
-            NativeMethods.SetWindowLongPtr(snapshot.Handle, NativeMethods.GWL_EXSTYLE, exStyle);
-            var monitor = MonitorInfo.FromWindow(snapshot.Handle);
-            NativeMethods.SetWindowPos(
-                snapshot.Handle,
-                NativeMethods.HWND_TOP,
-                monitor.Bounds.Left,
-                monitor.Bounds.Top,
-                monitor.Bounds.Width,
-                monitor.Bounds.Height,
-                NativeMethods.SWP_FRAMECHANGED | NativeMethods.SWP_SHOWWINDOW);
-            NativeMethods.ShowWindow(snapshot.Handle, NativeMethods.SW_MAXIMIZE);
+            var placement = new WINDOWPLACEMENT
+            {
+                Length = Marshal.SizeOf<WINDOWPLACEMENT>(),
+                Flags = snapshot.Placement.Flags,
+                ShowCmd = snapshot.Placement.ShowCommand,
+                MinPosition = new POINT
+                {
+                    X = snapshot.Placement.MinPosition.X,
+                    Y = snapshot.Placement.MinPosition.Y
+                },
+                MaxPosition = new POINT
+                {
+                    X = snapshot.Placement.MaxPosition.X,
+                    Y = snapshot.Placement.MaxPosition.Y
+                },
+                NormalPosition = ToRect(snapshot.Placement.NormalBounds)
+            };
+
+            if (!NativeMethods.SetWindowPos(
+                    snapshot.Handle,
+                    NativeMethods.HWND_TOP,
+                    0,
+                    0,
+                    0,
+                    0,
+                    NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE |
+                    NativeMethods.SWP_NOZORDER | NativeMethods.SWP_FRAMECHANGED))
+                throw LastWin32Exception("Unable to recalculate the restored window frame.");
+
+            if (!NativeMethods.SetWindowPlacement(snapshot.Handle, ref placement))
+                throw LastWin32Exception("Unable to restore the target window placement.");
+
             NativeMethods.SetForegroundWindow(snapshot.Handle);
             return true;
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Failed to enter Zen Mode for {Handle}", snapshot.Handle);
+            logger.LogWarning(ex, "Failed to restore window {Handle}", snapshot.Handle);
             return false;
         }
-    }
-
-    public void Restore(WindowSnapshot snapshot)
-    {
-        if (!NativeMethods.IsWindow(snapshot.Handle))
-            return;
-
-        NativeMethods.SetWindowLongPtr(snapshot.Handle, NativeMethods.GWL_STYLE, snapshot.Style);
-        NativeMethods.SetWindowLongPtr(snapshot.Handle, NativeMethods.GWL_EXSTYLE, snapshot.ExtendedStyle);
-        NativeMethods.ShowWindow(snapshot.Handle, NativeMethods.SW_RESTORE);
-        NativeMethods.SetWindowPos(
-            snapshot.Handle,
-            snapshot.InsertAfter,
-            snapshot.Bounds.Left,
-            snapshot.Bounds.Top,
-            snapshot.Bounds.Width,
-            snapshot.Bounds.Height,
-            NativeMethods.SWP_FRAMECHANGED | NativeMethods.SWP_SHOWWINDOW);
-
-        if (snapshot.WasMaximized)
-            NativeMethods.ShowWindow(snapshot.Handle, NativeMethods.SW_MAXIMIZE);
-        else if (snapshot.WasMinimized)
-            NativeMethods.ShowWindow(snapshot.Handle, NativeMethods.SW_HIDE);
-
-        NativeMethods.SetForegroundWindow(snapshot.Handle);
     }
 
     public IReadOnlyList<nint> VisibleTopLevelWindows()
@@ -112,6 +226,42 @@ public sealed class WindowManager(ILogger<WindowManager> logger)
         }, nint.Zero);
         return windows;
     }
+
+    private static int ReadWindowLong(nint hwnd, int index)
+    {
+        Marshal.SetLastPInvokeError(0);
+        var value = NativeMethods.GetWindowLongPtr(hwnd, index);
+        var error = Marshal.GetLastPInvokeError();
+        if (value == nint.Zero && error != 0)
+            throw new Win32Exception(error);
+        return unchecked((int)value.ToInt64());
+    }
+
+    private static void SetWindowLongChecked(nint hwnd, int index, int value)
+    {
+        Marshal.SetLastPInvokeError(0);
+        var previous = NativeMethods.SetWindowLongPtr(hwnd, index, new nint(value));
+        var error = Marshal.GetLastPInvokeError();
+        if (previous == nint.Zero && error != 0)
+            throw new Win32Exception(error);
+    }
+
+    private static Win32Exception LastWin32Exception(string message)
+    {
+        var error = Marshal.GetLastPInvokeError();
+        return new Win32Exception(error, $"{message} Win32 error {error}.");
+    }
+
+    private static Rectangle ToRectangle(RECT rect) =>
+        Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom);
+
+    private static RECT ToRect(Rectangle rectangle) => new()
+    {
+        Left = rectangle.Left,
+        Top = rectangle.Top,
+        Right = rectangle.Right,
+        Bottom = rectangle.Bottom
+    };
 
     private static string GetTitle(nint hwnd)
     {

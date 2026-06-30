@@ -6,80 +6,110 @@ namespace ZenWin.Core;
 
 public sealed class ZenModeController(
     WindowManager windowManager,
-    TaskbarManager taskbarManager,
-    DesktopManager desktopManager,
-    CursorManager cursorManager,
-    WallpaperManager wallpaperManager,
-    NotificationManager notificationManager,
-    AudioManager audioManager,
-    ProfileManager profileManager,
-    ILogger<ZenModeController> logger)
+    ILogger<ZenModeController> logger) : IDisposable
 {
+    private readonly object _sync = new();
     private WindowSnapshot? _snapshot;
-    private ZenModeProfile _profile = ZenWinSettings.DefaultProfile;
+    private Timer? _enforcementTimer;
 
-    public bool IsActive => _snapshot is not null;
+    public bool IsActive
+    {
+        get
+        {
+            lock (_sync)
+                return _snapshot is not null;
+        }
+    }
+
+    public string StatusMessage { get; private set; } = "Focus an application and press F10.";
     public event EventHandler<bool>? ActiveChanged;
 
-    public ZenModeProfile CurrentProfile => _profile;
+    public bool Toggle() => IsActive ? Exit() : Enter();
 
-    public bool Toggle(ZenWinSettings settings) => IsActive ? Exit() : Enter(settings);
-
-    public bool Enter(ZenWinSettings settings)
+    public bool Enter()
     {
-        if (IsActive)
-            return true;
-
-        var hwnd = windowManager.ActiveWindow;
-        if (hwnd == nint.Zero)
-            return false;
-
-        WindowSnapshot snapshot;
-        try
+        lock (_sync)
         {
-            snapshot = windowManager.Capture(hwnd);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Unable to capture active window.");
-            return false;
+            if (_snapshot is not null)
+                return true;
+
+            WindowSnapshot snapshot;
+            try
+            {
+                snapshot = windowManager.Capture(windowManager.ActiveWindow);
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = ex.Message;
+                logger.LogWarning(ex, "Unable to capture the active window.");
+                return false;
+            }
+
+            if (snapshot.ProcessId == Environment.ProcessId)
+            {
+                StatusMessage = "Focus another application before enabling frameless mode.";
+                return false;
+            }
+
+            var result = windowManager.TryEnterFrameless(snapshot);
+            StatusMessage = result.Message;
+            if (!result.Succeeded)
+                return false;
+
+            _snapshot = snapshot;
+            _enforcementTimer = new Timer(EnforceFrameless, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         }
 
-        _profile = profileManager.SelectProfile(settings, snapshot.ProcessName);
-        if (!windowManager.TryEnterZen(snapshot, _profile))
-            return false;
-
-        _snapshot = snapshot;
-        if (_profile.HideTaskbar)
-            taskbarManager.Hide();
-        if (_profile.HideDesktopIcons)
-            desktopManager.HideIcons();
-        if (_profile.HideCursor)
-            cursorManager.Enable(_profile.CursorIdleSeconds);
-        if (_profile.WallpaperMode != WallpaperMode.Unchanged)
-            wallpaperManager.Apply(_profile.WallpaperMode);
-        if (_profile.EnableAudio)
-            audioManager.Play(_profile.AmbientSound);
-        notificationManager.TryEnableDoNotDisturb();
         ActiveChanged?.Invoke(this, true);
         return true;
     }
 
     public bool Exit()
     {
-        if (_snapshot is null)
-            return true;
+        WindowSnapshot? snapshot;
+        lock (_sync)
+        {
+            snapshot = _snapshot;
+            if (snapshot is null)
+                return true;
 
-        var snapshot = _snapshot;
-        _snapshot = null;
-        audioManager.Stop();
-        cursorManager.Disable();
-        wallpaperManager.Restore();
-        notificationManager.Restore();
-        desktopManager.RestoreIcons();
-        taskbarManager.Restore();
-        windowManager.Restore(snapshot);
+            _snapshot = null;
+            _enforcementTimer?.Dispose();
+            _enforcementTimer = null;
+        }
+
+        var restored = windowManager.Restore(snapshot);
+        StatusMessage = restored
+            ? "The original window frame was restored."
+            : "The application closed or Windows rejected part of the frame restoration.";
         ActiveChanged?.Invoke(this, false);
-        return true;
+        return restored;
+    }
+
+    private void EnforceFrameless(object? state)
+    {
+        _ = state;
+        WindowSnapshot? snapshot;
+        lock (_sync)
+            snapshot = _snapshot;
+
+        if (snapshot is null)
+            return;
+
+        var result = windowManager.EnsureFrameless(snapshot);
+        if (!result.Succeeded)
+        {
+            StatusMessage = result.Message;
+            logger.LogWarning(
+                "Unable to keep {Process} frameless: {Reason}",
+                snapshot.ProcessName,
+                result.Message);
+        }
+    }
+
+    public void Dispose()
+    {
+        Exit();
+        GC.SuppressFinalize(this);
     }
 }

@@ -2,39 +2,35 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using ZenWin.Core;
-using ZenWin.Models;
-using ZenWin.Services;
 
 namespace ZenWin.UI.ViewModels;
 
 public sealed class MainViewModel : INotifyPropertyChanged
 {
     private readonly ZenModeController _controller;
-    private readonly SettingsStore _settingsStore;
-    private ZenWinSettings _settings = new();
 
-    public MainViewModel(ZenModeController controller, SettingsStore settingsStore)
+    public MainViewModel(ZenModeController controller)
     {
         _controller = controller;
-        _settingsStore = settingsStore;
         ToggleZenCommand = new RelayCommand(() =>
         {
-            _controller.Toggle(Settings);
+            _controller.Toggle();
             OnPropertyChanged(nameof(IsZenActive));
+            OnPropertyChanged(nameof(ToggleButtonText));
+            OnPropertyChanged(nameof(StatusMessage));
         });
-        SaveCommand = new RelayCommand(async () => await _settingsStore.SaveAsync(Settings));
-        _controller.ActiveChanged += (_, _) => OnPropertyChanged(nameof(IsZenActive));
-    }
-
-    public ZenWinSettings Settings
-    {
-        get => _settings;
-        set { _settings = value; OnPropertyChanged(); }
+        _controller.ActiveChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(IsZenActive));
+            OnPropertyChanged(nameof(ToggleButtonText));
+            OnPropertyChanged(nameof(StatusMessage));
+        };
     }
 
     public bool IsZenActive => _controller.IsActive;
+    public string ToggleButtonText => IsZenActive ? "Restore Window Frame" : "Make Active Window Frameless";
+    public string StatusMessage => _controller.StatusMessage;
     public ICommand ToggleZenCommand { get; }
-    public ICommand SaveCommand { get; }
     public event PropertyChangedEventHandler? PropertyChanged;
 
     private void OnPropertyChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
