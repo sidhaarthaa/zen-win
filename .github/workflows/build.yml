@@ -3,6 +3,7 @@ name: build
 on:
   push:
     branches: [ main, master ]
+    tags: [ "v*" ]
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
@@ -21,8 +22,38 @@ jobs:
       - run: dotnet restore ZenWin.sln
       - run: dotnet build ZenWin.sln -c Release --no-restore
       - run: dotnet test ZenWin.sln -c Release --no-build
-      - run: dotnet publish src/ZenWin.UI/ZenWin.UI.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/${{ matrix.rid }}
+      - name: Publish
+        shell: pwsh
+        run: |
+          dotnet publish src/ZenWin.UI/ZenWin.UI.csproj -c Release -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=None -o artifacts/${{ matrix.rid }}
+          Copy-Item installer/install.ps1 artifacts/${{ matrix.rid }}/install.ps1
+          Compress-Archive -Path artifacts/${{ matrix.rid }}/* -DestinationPath artifacts/ZenWin-${{ matrix.rid }}.zip
       - uses: actions/upload-artifact@v4
         with:
           name: ZenWin-${{ matrix.rid }}
-          path: artifacts/${{ matrix.rid }}
+          path: artifacts/ZenWin-${{ matrix.rid }}.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: windows
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ZenWin-*
+          path: release
+          merge-multiple: true
+      - name: Create checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem release/*.zip | ForEach-Object {
+            "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
+          } | Set-Content release/SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            release/*.zip
+            release/SHA256SUMS.txt

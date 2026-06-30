@@ -74,7 +74,8 @@ public partial class App : System.Windows.Application
 
     private void ConfigureHotkeys()
     {
-        var viewModel = _services!.GetRequiredService<MainViewModel>();
+        var services = _services!;
+        var viewModel = services.GetRequiredService<MainViewModel>();
         _hotkeyWindow = new HotkeyWindow();
         _hotkeyWindow.HotkeyPressed += (_, id) =>
         {
@@ -82,7 +83,7 @@ public partial class App : System.Windows.Application
             if (id == 2) ToggleToolbar();
         };
         _hotkeyWindow.RegisterDefaults();
-        _services.GetRequiredService<ZenModeController>().ActiveChanged += (_, active) =>
+        services.GetRequiredService<ZenModeController>().ActiveChanged += (_, active) =>
         {
             if (active)
             {

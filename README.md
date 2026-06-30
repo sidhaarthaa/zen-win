@@ -20,9 +20,33 @@ Run the app locally:
 dotnet run --project .\src\ZenWin.UI\ZenWin.UI.csproj
 ```
 
-## Download From GitHub Actions
+## Install
 
-After pushing this repository to GitHub, open the repository's **Actions** tab, select the latest `build` workflow run, and download the `ZenWin-win-x64` artifact. The workflow publishes a self-contained Windows build, so the downloaded app does not require a local .NET SDK.
+Install the latest release directly from GitHub (no administrator access or .NET SDK required):
+
+```powershell
+irm https://raw.githubusercontent.com/sidhaarthaa/zen-win/master/installer/install.ps1 | iex
+```
+
+The installer detects x64 or ARM64 Windows, installs under the current user's local
+app data, creates Start Menu and desktop shortcuts, and registers ZenWin in Windows'
+Installed Apps list.
+
+To install manually, download the ZIP for your architecture from
+[GitHub Releases](https://github.com/sidhaarthaa/zen-win/releases/latest), extract it,
+and run `ZenWin.UI.exe`.
+
+To uninstall, use **Settings > Apps > Installed apps > ZenWin**, or run:
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\ZenWin\install.ps1" -Uninstall
+```
+
+## Development Builds
+
+Open the repository's **Actions** tab, select the latest `build` workflow run, and
+download the artifact for your architecture. Tagged builds such as `v0.1.0` are
+published automatically to GitHub Releases.
 
 ## Hotkeys
 
@@ -37,4 +61,5 @@ Some elevated, protected, exclusive fullscreen, or custom-rendered windows rejec
 
 ## Packaging
 
-The repository includes CI publishing for standalone Windows builds. MSIX/installer assets are scaffolded under `installer/` for signing and store identity details that must be supplied per publisher.
+The repository publishes self-contained x64 and ARM64 ZIPs to GitHub Releases.
+Winget and Chocolatey manifests can be added after the first stable release URL exists.
